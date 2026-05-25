@@ -1,0 +1,293 @@
+/*
+   Seguidor de línea con PID
+   Sigue LINEA BLANCA
+
+   Felipe Ramírez Alondra Navila
+   (Equipo: Edwin)
+*/
+
+// Pines sensores
+const int pinSensores[3] = {0, 1, 2}; // IZQ, CEN, DER
+
+// Pines motores
+const int IN1 = 16;
+const int IN2 = 23;
+const int IN3 = 22;
+const int IN4 = 21;
+
+// Velocidad base
+int velocidadBase = 85;
+
+// Variables PID
+float Kp = 35;
+float Ki = 0;
+float Kd = 35;
+
+float error = 0;
+float errorAnterior = 0;
+float integral = 0;
+float derivada = 0;
+float PID = 0;
+
+// Última dirección conocida
+int ultimoError = 0;
+
+// ============================
+// Variables calibración
+// ============================
+
+int minSensores[3] = {4095, 4095, 4095};
+int maxSensores[3] = {0, 0, 0};
+
+long sumaLecturas[3] = {0, 0, 0};
+long contadorMuestras = 0;
+
+int umbrales[3] = {200, 200, 200};
+
+// ============================
+// SETUP
+// ============================
+
+void setup() {
+
+  Serial.begin(115200);
+
+  // Sensores
+  for(int i = 0; i < 3; i++) {
+    pinMode(pinSensores[i], INPUT);
+  }
+
+  // Motores
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
+
+  Serial.println("INICIANDO...");
+
+  delay(3000);
+
+  ejecutarCalibracion();
+
+  delay(1000);
+}
+
+// ============================
+// LOOP
+// ============================
+
+void loop() {
+
+  int val[3];
+
+  // Leer sensores
+  for(int i = 0; i < 3; i++) {
+    val[i] = analogRead(pinSensores[i]);
+  }
+
+  // Comentado para agilizar el ciclo del PID en pista. 
+  // Descomentar solo para pruebas de sensores en el aire.
+  /*
+  Serial.print("IZQ: ");
+  Serial.print(val[0]);
+  Serial.print(" | CEN: ");
+  Serial.print(val[1]);
+  Serial.print(" | DER: ");
+  Serial.println(val[2]);
+  */
+
+  // ============================
+  // Detectar línea blanca
+  // ============================
+
+  bool izq = val[0] <= umbrales[0];
+  bool cen = val[1] <= umbrales[1];
+  bool der = val[2] <= umbrales[2];
+
+  // ============================
+  // Calcular error
+  // ============================
+
+  if(cen) {
+    error = 0;
+  }
+  else if(izq) {
+    error = -1;
+  }
+  else if(der) {
+    error = 1;
+  }
+  else {
+    // Perdió línea
+    Serial.println("LINEA PERDIDA");
+
+    // Buscar línea rotando sobre su propio eje según la última dirección
+    if(ultimoError < 0) {
+      // La línea estaba a la izquierda, gira hacia la izquierda
+      // Motor izquierdo hacia atrás, derecho hacia adelante
+      moverMotores(-85, 85); 
+    }
+    else {
+      // La línea estaba a la derecha, gira hacia la derecha
+      // Motor izquierdo hacia adelante, derecho hacia atrás
+      moverMotores(85, -85); 
+    }
+
+    return; // Evita que se calcule el PID si no hay línea
+  }
+
+  // Guardar último error
+  ultimoError = error;
+
+  // ============================
+  // PID
+  // ============================
+
+  integral += error;
+  derivada = error - errorAnterior;
+
+  PID = (Kp * error) +
+        (Ki * integral) +
+        (Kd * derivada);
+
+  errorAnterior = error;
+
+  // ============================
+  // Ajustar motores
+  // ============================
+
+  int velIzq = velocidadBase + PID;
+  int velDer = velocidadBase - PID;
+
+  // Rango ampliado para aprovechar motores en reversa durante curvas
+  velIzq = constrain(velIzq, -255, 255);
+  velDer = constrain(velDer, -255, 255);
+
+  // Mostrar PID
+  Serial.print("Error: ");
+  Serial.print(error);
+  Serial.print(" | PID: ");
+  Serial.print(PID);
+  Serial.print(" | MI: ");
+  Serial.print(velIzq);
+  Serial.print(" | MD: ");
+  Serial.println(velDer);
+
+  moverMotores(velIzq, velDer);
+
+  delay(10);
+}
+
+// ============================
+// CALIBRACIÓN
+// ============================
+
+void ejecutarCalibracion() {
+
+  Serial.println("CALIBRANDO...");
+
+  for (int i = 0; i < 5; i++) {
+    avanzar();
+    delay(50);
+    capturarProcesar(400);
+    detener();
+    delay(200);
+    atras();
+    delay(50);
+    capturarProcesar(400);
+    detener();
+    delay(200);
+  }
+
+  const char* etiquetas[] = {"IZQ", "CEN", "DER"};
+
+  for (int i = 0; i < 3; i++) {
+    // Umbral automático
+    umbrales[i] = (minSensores[i] + maxSensores[i]) / 2;
+
+    Serial.print(etiquetas[i]);
+    Serial.print(" | Min: ");
+    Serial.print(minSensores[i]);
+    Serial.print(" | Max: ");
+    Serial.print(maxSensores[i]);
+    Serial.print(" | Umbral: ");
+    Serial.println(umbrales[i]);
+  }
+
+  Serial.println("CALIBRACION TERMINADA");
+}
+
+// ============================
+// Captura lecturas calibración
+// ============================
+
+void capturarProcesar(int duracionMs) {
+
+  unsigned long inicio = millis();
+
+  while (millis() - inicio < duracionMs) {
+
+    for (int i = 0; i < 3; i++) {
+
+      int lectura = analogRead(pinSensores[i]);
+
+      // Guardar mínimos
+      if (lectura < minSensores[i]) {
+        minSensores[i] = lectura;
+      }
+
+      // Guardar máximos
+      if (lectura > maxSensores[i]) {
+        maxSensores[i] = lectura;
+      }
+
+      sumaLecturas[i] += lectura;
+    }
+
+    contadorMuestras++;
+    delay(5);
+  }
+}
+
+// ============================
+// Movimiento PID (Actualizado)
+// ============================
+
+void moverMotores(int velIzq, int velDer) {
+
+  // Control del Motor Izquierdo
+  if (velIzq >= 0) {
+    analogWrite(IN1, velIzq);
+    analogWrite(IN2, 0);
+  } else {
+    // Velocidad negativa: retrocede
+    analogWrite(IN1, 0);
+    analogWrite(IN2, -velIzq); 
+  }
+
+  // Control del Motor Derecho
+  if (velDer >= 0) {
+    analogWrite(IN3, 0);
+    analogWrite(IN4, velDer);
+  } else {
+    // Velocidad negativa: retrocede
+    analogWrite(IN3, -velDer);
+    analogWrite(IN4, 0);
+  }
+}
+
+// ============================
+// FUNCIONES BÁSICAS SIMPLIFICADAS
+// ============================
+
+void avanzar() {
+  moverMotores(velocidadBase, velocidadBase);
+}
+
+void atras() {
+  moverMotores(-velocidadBase, -velocidadBase);
+}
+
+void detener() {
+  moverMotores(0, 0);
+}
