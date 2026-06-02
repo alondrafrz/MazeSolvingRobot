@@ -1,4 +1,4 @@
-/*
+  /*
    Seguidor de línea con PID
    Sigue línea blanca
 
@@ -85,7 +85,7 @@ void loop() {
   else if (izq && cen && der) { error = 0; }     // toda la línea debajo
   else {
 
-    // Buscar línea rotando sobre su propio eje según la última dirección
+    // Buscar línea girando sobre su propio eje según la última dirección
     if(ultimoError < 0) {
       // La línea estaba a la izquierda, gira hacia la izquierda
       // Motor izquierdo hacia atrás, derecho hacia adelante
@@ -110,7 +110,6 @@ void loop() {
   PID = (Kp * error) +
         (Ki * integral) +
         (Kd * derivada);
-
   errorAnterior = error;
 
   // Ajustar motores
