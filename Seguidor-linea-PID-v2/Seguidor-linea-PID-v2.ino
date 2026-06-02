@@ -19,12 +19,12 @@ int velocidadBase = 85;
 float compensacionDer = 0.85;
 
 // Variables PID
-float Kp = 20;
-float Ki = 0.5;
-float Kd = 10;
+float Kp = 5;
+float Ki = 0.1;
+float Kd = 0.05;
 
 float error = 0;
-float errorAnterior = 0; // Guarda el error del ciclo anterior para calcular la tasa de cambio
+float errorAnterior = 0; // Guarda el error del ciclo anterior para calcular la tasa de c  ambio
 float integral = 0;
 float derivada = 0;
 float PID = 0;
@@ -65,7 +65,7 @@ void setup() {
   delay(1000);
 
   // inicializamos el cronómetro
-  tiempoAnteMicros = micros();
+  tiempoAntMicros = micros();
   
 }
 
@@ -102,7 +102,7 @@ void loop() {
       // Motor izquierdo hacia adelante, derecho hacia atrás
       moverMotores(85, -85); 
     }
-    tiempoAnteriorMicros = micros(); // si perdemos la linea, reinicia el tiempo para que al volver 
+    tiempoAntMicros = micros(); // si perdemos la linea, reinicia el tiempo para que al volver 
     // dt no sea muy grande
     return; // Evita que se calcule el PID si no hay línea
   }
@@ -112,12 +112,12 @@ void loop() {
   ultimoError = error;
 
   unsigned long tiempoActualMicros = micros();
-  float dt = (float)(tiempoActualMicros - tiempoAntMicros)/1000000.0 // calculamos tiempo trasncurrido en seg
+  float dt = (float)(tiempoActualMicros - tiempoAntMicros)/1000000.0; // calculamos tiempo trasncurrido en seg
   tiempoAntMicros = tiempoActualMicros;
 
-  if(dt <= 0){
+  /*if(dt <= 0){
     dt = 0.005;
-  }
+  }*/
 
   // PID
 
@@ -125,28 +125,13 @@ void loop() {
   float proporcional = Kp * error;
   //integral:
   integral += error * dt;
-  integral = constrain(integral, -100.0, 100.0);
+  integral = constrain(integral, -100.0, 100.0); //restringe el crecimiento de la integral
   //derivada:
   derivada = (error - errorAnterior) / dt;
 
   PID = proporcional + (Ki * integral) + (Kd * derivada);
   errorAnterior = error;
 
-  /*
-  // PID
-  integral += error;
-  derivada = error - errorAnterior;
-
-  PID = (Kp * error) +
-        (Ki * integral) +
-        (Kd * derivada);
-
-        // P = valDeseado - valActual
-        // I = sumaErrores cada val * por el tiempoTrasncurrido
-        // D = 
-
-  errorAnterior = error;
-  */
 
   // Ajustar motores
   int velIzq = velocidadBase + PID;
@@ -163,7 +148,7 @@ void loop() {
 
 // Calibración
 void ejecutarCalibracion() {
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < 3; i++) {
     avanzar();
     delay(50);
     capturarProcesar(400);
