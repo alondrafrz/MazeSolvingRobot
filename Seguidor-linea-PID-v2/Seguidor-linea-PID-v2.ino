@@ -15,13 +15,13 @@ const int IN3 = 22;
 const int IN4 = 21;
 
 // Velocidad base
-int velocidadBase = 85;
+int velocidadBase = 100;
 float compensacionDer = 0.85;
 
 // Variables PID
-float Kp = 5;
+float Kp = 5 ;
 float Ki = 0.1;
-float Kd = 0.05;
+float Kd = 0.11 ;
 
 float error = 0;
 float errorAnterior = 0; // Guarda el error del ciclo anterior para calcular la tasa de c  ambio
