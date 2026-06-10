@@ -15,13 +15,15 @@ const int IN3 = 22;
 const int IN4 = 21;
 
 // Velocidad base
-int velocidadBase = 100;
+int velocidadBase = 120;
 float compensacionDer = 0.85;
 
 // Variables PID
-float Kp = 5 ;
-float Ki = 0.1;
-float Kd = 0.11 ;
+float Kp = 6.5 ;
+float Ki = 0.058;
+float Kd = 0.12 ; //0.1;
+
+#define numDelay 3.5
 
 float error = 0;
 float errorAnterior = 0; // Guarda el error del ciclo anterior para calcular la tasa de c  ambio
@@ -142,7 +144,7 @@ void loop() {
   velDer = constrain(velDer, -255, 255);
   moverMotores(velIzq, velDer);
 
-  delay(5);
+  delay(numDelay);
 }
 
 
