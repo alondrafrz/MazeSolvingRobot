@@ -1,12 +1,20 @@
   /*
-   Seguidor de línea blanca con PID. Recopila datos de las lecturas
-   de los sensores y de las salidas de los motores.
-
-   Última modificación: 17 de Junio de 2026
+   Seguidor de línea con PID
+   Sigue línea blanca
 
    Felipe Ramírez Alondra Navila
 */
 
+#include <WiFi.h>
+#include <WifiUdp.h>
+
+const char* ssid = "Incubot";
+const char* password = "@El0t1t0";
+
+const char* ipCompu = "192.168.3.18";
+const int puertoUdp = 1234;
+
+WiFiUDP udp;
 
 // Pines sensores
 const int pinSensores[3] = {0, 1, 2}; // IZQ, CEN, DER
@@ -26,7 +34,7 @@ float Kp = 6.5 ;
 float Ki = 0.058;
 float Kd = 0.12 ; //0.1;
 
-#define numDelay 5
+#define numDelay 3.5
 
 float error = 0;
 float errorAnterior = 0; // Guarda el error del ciclo anterior para calcular la tasa de c  ambio
@@ -64,6 +72,22 @@ void setup() {
   pinMode(IN2, OUTPUT);
   pinMode(IN3, OUTPUT);
   pinMode(IN4, OUTPUT);
+
+  detener();
+
+// Iniciamos conexión WiFi
+  Serial.print("Conectando a ");
+  Serial.println(ssid);
+
+  WiFi.begin(ssid, password);
+
+  while(WiFi.status()!= WL_CONNECTED) {
+     delay(500);
+     Serial.print(".");
+  }
+
+  Serial.println("");
+  Serial.println("Conectado");
 
   
   delay(3000);
@@ -148,17 +172,21 @@ void loop() {
   velDer = constrain(velDer, -255, 255);
   moverMotores(velIzq, velDer);
 
- 
-  // datos para el csv
-  Serial.print(val[0]); 
-  Serial.print(",");
-  Serial.print(val[1]); 
-  Serial.print(",");
-  Serial.print(val[2]); 
-  Serial.print(",");
-  Serial.print(velIzq); 
-  Serial.print(",");
-  Serial.println(velDer);
+
+  //Empaquetamiento por UDP
+  udp.beginPacket(ipCompu, puertoUdp);
+
+  udp.print(val[0]);
+  udp.print(",");
+  udp.print(val[1]);
+  udp.print(",");
+  udp.print(val[2]);
+  udp.print(",");
+  udp.print(velIzq);
+  udp.print(",");
+  udp.println(velDer);
+
+  udp.endPacket();
   
   
   delay(numDelay);
@@ -236,8 +264,6 @@ void moverMotores(int velIzq, int velDer) {
     analogWrite(IN4, 0);
   }
 }
-
-
 
 // Funciones básicas
 void avanzar() {
